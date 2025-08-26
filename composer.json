@@ -1,0 +1,32 @@
+{
+  "name": "charcoal-dev/http-trust-proxy",
+  "description": "TTP header resolver for client IP/host/proto behind proxies, built on networking.",
+  "type": "library",
+  "homepage": "https://github.com/charcoal-dev/http-trust-proxy",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Furqan A. Siddiqui",
+      "email": "hello@furqansiddiqui.com",
+      "homepage": "https://www.furqansiddiqui.com",
+      "role": "Author"
+    }
+  ],
+  "require": {
+    "php": "^8.3",
+    "charcoal-dev/networking": "^0.1.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Charcoal\\Http\\TrustProxy\\": [
+        "src"
+      ]
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Charcoal\\Http\\Tests\\TrustProxy\\": "tests/"
+    }
+  },
+  "minimum-stability": "dev"
+}
