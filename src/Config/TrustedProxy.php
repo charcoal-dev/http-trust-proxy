@@ -55,6 +55,11 @@ readonly class TrustedProxy
     public function match(string $ipBinary): bool
     {
         foreach ($this->allowedCidr as $network) {
+            // Guard against IPv4/IPv6 family mismatches (different binary lengths)
+            if (strlen($ipBinary) !== strlen($network[0])) {
+                continue;
+            }
+
             if (CidrHelper::ipInCidrBinary($ipBinary, true, $network[0], $network[1])) {
                 return true;
             }
