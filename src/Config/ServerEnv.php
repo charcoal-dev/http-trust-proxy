@@ -1,5 +1,5 @@
 <?php
-/*
+/**
  * Part of the "charcoal-dev/http-trust-proxy" package.
  * @link https://github.com/charcoal-dev/http-trust-proxy
  */
@@ -13,7 +13,7 @@ namespace Charcoal\Http\TrustProxy\Config;
  * such as IP address, hostname, port, and HTTPS status. It also provides methods
  * to access forwarded headers if they exist.
  */
-final readonly class ServerEnv
+readonly class ServerEnv
 {
     public ?string $peerIp;
     public ?string $hostname;
