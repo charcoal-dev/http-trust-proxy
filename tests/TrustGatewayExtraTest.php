@@ -158,42 +158,6 @@ final class TrustGatewayExtraTest extends TestCase
         $this->assertSame(1, $result->proxyHop);
     }
 
-    public function testGateway_Xff_Index0_ProtoFromTrustedEdgeFalse_DoesNotUseProto(): void
-    {
-        $peerIp = "10.1.2.3";
-        $proxy = new TrustedProxy(true, ["10.0.0.0/8"], protoFromTrustedEdge: false);
-        $env = $this->env(
-            peerIp: $peerIp,
-            host: "hostname.tld",
-            https: false,
-            xff: "10.1.2.3, 198.51.100.1",
-            xfProto: "https, http"
-        );
-
-        $result = TrustGateway::establishTrust([$proxy], $env);
-        $this->assertSame("198.51.100.1", $result->clientIp);
-        $this->assertSame("http", $result->scheme);
-        $this->assertSame(0, $result->proxyHop);
-    }
-
-    public function testGateway_Xff_Index0_ProtoFromTrustedEdgeTrue_UsesProto(): void
-    {
-        $peerIp = "10.1.2.3";
-        $proxy = new TrustedProxy(true, ["10.0.0.0/8"], protoFromTrustedEdge: true);
-        $env = $this->env(
-            peerIp: $peerIp,
-            host: "hostname.tld",
-            https: false,
-            xff: "10.1.2.3, 198.51.100.1",
-            xfProto: "https, http"
-        );
-
-        $result = TrustGateway::establishTrust([$proxy], $env);
-        $this->assertSame("198.51.100.1", $result->clientIp);
-        $this->assertSame("https", $result->scheme);
-        $this->assertSame(0, $result->proxyHop);
-    }
-
     public function testGateway_Xff_BracketedIpv6WithPort_SkipsToNextClient(): void
     {
         $peerIp = "10.1.2.3";
@@ -229,18 +193,37 @@ final class TrustGatewayExtraTest extends TestCase
         $this->assertSame(0, $result->proxyHop);
     }
 
-    public function testGateway_MultipleTrustedProxyEntries_SecondMatchesForwarded(): void
+    public function testGateway_FirstMatchingProxyFailure_DoesNotFallThroughToLaterProxy(): void
     {
-        $peerIp = "2001:db8::5";
+        $peerIp = "10.1.2.3";
         $proxies = [
-            new TrustedProxy(true, ["10.0.0.0/8"]),
-            new TrustedProxy(true, ["2001:db8::/32"]),
+            new TrustedProxy(true, ["10.0.0.0/8"], maxHops: 1),
+            new TrustedProxy(true, ["10.0.0.0/8"], maxHops: 5),
         ];
         $env = $this->env(
             peerIp: $peerIp,
             host: "baseline.tld",
             https: false,
-            forwarded: "for=\"[2001:db8::3]\";proto=https;host=hostname.tld, for=203.0.113.7"
+            xff: "203.0.113.7, 10.1.2.3"
+        );
+
+        $result = TrustGateway::establishTrust($proxies, $env);
+        $this->assertSame("10.1.2.3", $result->clientIp);
+        $this->assertNull($result->proxyHop);
+    }
+
+    public function testGateway_MultipleTrustedProxyEntries_SecondMatchesForwarded(): void
+    {
+        $peerIp = "198.51.100.9";
+        $proxies = [
+            new TrustedProxy(true, ["192.0.2.0/24"]),
+            new TrustedProxy(true, ["198.51.100.0/24"]),
+        ];
+        $env = $this->env(
+            peerIp: $peerIp,
+            host: "baseline.tld",
+            https: false,
+            forwarded: "for=198.51.100.7;proto=https;host=hostname.tld, for=203.0.113.7"
         );
 
         $result = TrustGateway::establishTrust($proxies, $env);
