@@ -1,4 +1,9 @@
 <?php
+/**
+ * Part of the "charcoal-dev/http-trust-proxy" package.
+ * @link https://github.com/charcoal-dev/http-trust-proxy
+ */
+
 declare(strict_types=1);
 
 namespace Charcoal\Http\Tests\TrustProxy\Fixture;
