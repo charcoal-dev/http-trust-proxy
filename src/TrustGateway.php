@@ -173,26 +173,22 @@ final readonly class TrustGateway
         }
 
         $xffData = $env->getXForwardedHeaders();
-        $xfp2 = array_reverse(array_map("trim", explode(",", $xffData[0] ?? "")));
+        $protoRev = array_reverse(array_map("trim", explode(",", $xffData[0] ?? "")));
+        $hostRev = array_reverse(array_map("trim", explode(",", $xffData[1] ?? "")));
+        $portRev = array_reverse(array_map("trim", explode(",", $xffData[2] ?? "")));
+        $protoOrig = array_map("trim", explode(",", $xffData[0] ?? ""));
         if ($index === 0) {
-            $scheme = match ($proxy->protoFromTrustedEdge) {
-                true => $xfp2[0] ?? null,
-                false => null,
-            };
-
+            $scheme = $proxy->protoFromTrustedEdge ? ($protoOrig[0] ?? null) : null;
             return [$clientIp, null, null, $scheme, 0];
         }
 
-        $xfh = array_reverse(array_map("trim", explode(",", $xffData[1] ?? "")));
-        $xfp1 = array_reverse(array_map("trim", explode(",", $xffData[2] ?? "")));
-
-        return [
-            $clientIp,
-            $xfh[$index - 1] ?? ($xfh[0] ?? null),
-            $xfp1[$index - 1] ?? ($xfp1[0] ?? null),
-            $xfp2[$index - 1] ?? ($xfp2[0] ?? null),
-            $index
-        ];
+        $trustedIndex = max(0, $index - 1);
+        $host = $hostRev[$trustedIndex] ?? null;
+        $port = $portRev[$trustedIndex] ?? null;
+        $scheme = $proxy->protoFromTrustedEdge
+            ? ($protoOrig[0] ?? null)
+            : ($protoRev[$trustedIndex] ?? null);
+        return [$clientIp, $host, $port, $scheme, $index];
     }
 
     /**

@@ -29,7 +29,8 @@ final class TrustGatewayTest extends TestCase
         ?string $xfProto = null,
         ?string $xfHost = null,
         ?string $xfPort = null
-    ): TestEnv {
+    ): TestEnv
+    {
         return new TestEnv($peerIp, $host, $port, $https, $forwarded, $xff, $xfProto, $xfHost, $xfPort);
     }
 
@@ -283,5 +284,91 @@ final class TrustGatewayTest extends TestCase
         $this->assertSame(6001, $result->port);
         $this->assertSame("https", $result->scheme);
         $this->assertSame(7, $result->proxyHop);
+    }
+
+    public function testGateway_Xff_RightAligned_UsesNearestTrustedAuthority_Short2(): void
+    {
+        $peerIp = "10.1.2.3";
+        $proxy = new TrustedProxy(true, ["10.0.0.0/8"]);
+        $env = $this->env(
+            peerIp: $peerIp,
+            xff: "203.0.113.7, 10.9.8.7, 10.1.2.3",
+            xfProto: "http, https, http",
+            xfHost: "client.tld, hostname.tld, proxyA",
+            xfPort: "1234, 443, 80"
+        );
+
+        $result = TrustGateway::establishTrust([$proxy], $env);
+        $this->assertSame("203.0.113.7", $result->clientIp);
+        $this->assertSame("hostname.tld", $result->hostname); // from nearest trusted upstream
+        $this->assertSame(443, $result->port);                // from nearest trusted upstream
+        $this->assertSame("https", $result->scheme);          // from nearest trusted upstream
+        $this->assertSame(2, $result->proxyHop);              // client at index 2 → nearest trusted = index 1
+    }
+
+    public function testGateway_Xff_CF_ProtoFromEdge_SchemeFromEdge_HostPortFromNearestTrusted(): void
+    {
+        $peerIp = "10.1.2.3";
+        $proxy = new TrustedProxy(true, ["10.0.0.0/8"], protoFromTrustedEdge: true);
+        $env = $this->env(
+            peerIp: $peerIp,
+            https: false,
+            xff: "203.0.113.7, 10.1.2.3",
+            xfProto: "https, http",           // edge says https
+            xfHost: "client.tld, proxy",
+            xfPort: "70000, 80"              // client tuple invalid; nearest trusted has 80
+        );
+
+        $result = TrustGateway::establishTrust([$proxy], $env);
+        $this->assertSame("203.0.113.7", $result->clientIp);
+        $this->assertSame("proxy", $result->hostname);        // nearest trusted upstream (peer side)
+        $this->assertSame(80, $result->port);                 // nearest trusted upstream (peer side)
+        $this->assertSame("https", $result->scheme);          // from edge proto due to protoFromTrustedEdge=true
+        $this->assertSame(1, $result->proxyHop);              // client at index 1
+    }
+
+    public function testGateway_Xff_LongChain_UsesNearestTrustedTuple(): void
+    {
+        $peerIp = "10.0.0.99";
+        $proxy = new TrustedProxy(true, ["10.0.0.0/8"], maxHops: 10);
+        $env = $this->env(
+            peerIp: $peerIp,
+            xff: "garbage, unknown, 203.0.113.77, 10.0.0.93, 10.0.0.94, 10.0.0.95, 10.0.0.96, 10.0.0.97, 10.0.0.98, 10.0.0.99",
+            xfProto: "http,   http,    http,         https,     http,     http,     http,     http,     http,     http",
+            xfHost: "h0,     h1,      h2,           hostname.tld, h4,    h5,       h6,       h7,       h8,       h9",
+            xfPort: "5000,   5001,    5002,         6001,      5004,    5005,     5006,     5007,     5008,     5009"
+        );
+
+        $r = TrustGateway::establishTrust([$proxy], $env);
+
+        // clientIndex = 7 (203.0.113.77), trustedIndex = 6
+        $this->assertSame("203.0.113.77", $r->clientIp);
+        $this->assertSame("hostname.tld", $r->hostname); // from trustedIndex
+        $this->assertSame(6001, $r->port);     // from trustedIndex
+        $this->assertSame("https", $r->scheme);   // from trustedIndex
+        $this->assertSame(7, $r->proxyHop);
+    }
+
+    public function testGateway_Xff_CloudflareFlag_SchemeFromEdge_HostPortFromNearestTrusted(): void
+    {
+        $peerIp = "10.1.2.3";
+        $proxy  = new TrustedProxy(true, ["10.0.0.0/8"], protoFromTrustedEdge: true);
+        $env    = $this->env(
+            peerIp:  $peerIp,
+            https:   false,
+            xff:     "203.0.113.7, 10.1.2.3",
+            xfProto: "https,        http",        // edge says original is HTTPS
+            xfHost:  "client.tld,   proxy",
+            xfPort:  "70000,        80"           // client tuple invalid; nearest trusted has 80
+        );
+
+        $r = TrustGateway::establishTrust([$proxy], $env);
+
+        // clientIndex = 1 (203.0.113.7), trustedIndex = 0 (peer)
+        $this->assertSame("203.0.113.7", $r->clientIp);
+        $this->assertSame("proxy",       $r->hostname); // from trustedIndex
+        $this->assertSame(80,            $r->port);     // from trustedIndex
+        $this->assertSame("https",       $r->scheme);   // from edge (leftmost/original proto)
+        $this->assertSame(1,             $r->proxyHop);
     }
 }

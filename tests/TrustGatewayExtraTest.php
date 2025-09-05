@@ -115,10 +115,10 @@ final class TrustGatewayExtraTest extends TestCase
 
         $result = TrustGateway::establishTrust([$proxy], $env);
         $this->assertSame("198.51.100.23", $result->clientIp);
-        $this->assertSame("client.example", $result->hostname);
-        $this->assertSame(5443, $result->port);
-        $this->assertSame("https", $result->scheme);
-        $this->assertSame(1, $result->proxyHop);
+        $this->assertSame("baseline.tld",   $result->hostname);
+        $this->assertNull($result->port);    // baseline (http)
+        $this->assertSame("http",           $result->scheme);
+        $this->assertSame(1,                $result->proxyHop); // consumed 1 trusted hop
     }
 
     public function testGateway_Xff_SkipsEmptyAndUnknown_SelectsClient(): void
@@ -140,7 +140,7 @@ final class TrustGatewayExtraTest extends TestCase
     public function testGateway_Xff_InvalidPortValues_NullPort(): void
     {
         $peerIp = "10.1.2.3";
-        $proxy = new TrustedProxy(true, ["10.0.0.0/8"]);
+        $proxy = new TrustedProxy(true, ["10.0.0.0/8"], protoFromTrustedEdge: true);
         $env = $this->env(
             peerIp: $peerIp,
             host: "hostname.tld",
@@ -153,7 +153,7 @@ final class TrustGatewayExtraTest extends TestCase
 
         $result = TrustGateway::establishTrust([$proxy], $env);
         $this->assertSame("203.0.113.7", $result->clientIp);
-        $this->assertNull($result->port);
+        $this->assertSame(80, $result->port);
         $this->assertSame("https", $result->scheme);
         $this->assertSame(1, $result->proxyHop);
     }
