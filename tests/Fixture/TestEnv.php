@@ -28,16 +28,16 @@ readonly class TestEnv extends ServerEnv
 
     public function getForwardedHeader(string $value = null): ?string
     {
-        return $this->forwarded ?? "";
+        return $this->forwarded ?? null;
     }
 
     public function getXForwardedFor(string $value = null): ?string
     {
-        return $this->xff ?? "";
+        return $this->xff ?? null;
     }
 
     public function getXForwardedHeaders(string $value = null, string $value2 = null, string $value3 = null): array
     {
-        return [$this->xfProto ?? "", $this->xfHost ?? "", $this->xfPort ?? ""];
+        return [$this->xfProto ?? null, $this->xfHost ?? null, $this->xfPort ?? null];
     }
 }
