@@ -87,9 +87,11 @@ final readonly class TrustGateway
         // User "Forwarded" header if available, and enabled
         if ($proxy->useForwarded) {
             $forwarded = $env->getForwardedHeader();
-            $matched = self::checkForwarded($proxy, $forwarded, $proxy->maxHops);
-            if ($matched) {
-                return [...$matched, $proxy];
+            if ($forwarded) {
+                $matched = self::checkForwarded($proxy, $forwarded, $proxy->maxHops);
+                if ($matched) {
+                    return [...$matched, $proxy];
+                }
             }
         }
 
